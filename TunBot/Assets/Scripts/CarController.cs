@@ -4,7 +4,6 @@ public class CarController : MonoBehaviour
 {
     // Car parts
     public WheelCollider[] wheelColliders = new WheelCollider[4];
-    public Transform[] tireMeshes = new Transform[4];
     public Transform centerOfMass;
     public Rigidbody rigidBody;
 
@@ -15,16 +14,14 @@ public class CarController : MonoBehaviour
     public float maxTorque;
     public float turnForce;
     public float maxBrakeTorque;
-    public float currentSpeed;
-    public float multiplier;
-    public bool isKinematic = false;
+    bool m_init = false;
 
     // Debugging
     [HideInInspector]
     public GUIStyle style;
     public bool debugMode;
 
-    public void Update()
+    public void Start()
     {
         Init();
     }
@@ -32,20 +29,52 @@ public class CarController : MonoBehaviour
     public void Init()
     {
         rigidBody = GetComponent<Rigidbody>();
-        isKinematic = carData.m_isKinematic;
-        rigidBody.isKinematic = isKinematic;
         mass = carData.m_mass;
         maxSpeed = carData.m_maxSpeed;
         maxTorque = carData.m_maxTorque;
         turnForce = carData.m_turnForce;
         maxBrakeTorque = carData.m_maxBrakeTorque;
-        multiplier = carData.m_multiplier;
         rigidBody.mass = mass;
         rigidBody.centerOfMass = centerOfMass.localPosition;
-
-
-        this.GetComponent<InputHandler>().m_carInit = true;
+        m_init = true;
     }
+
+    private void Update()
+    {
+        if (m_init)
+        {
+            float currentSpeed = 2.23694f * rigidBody.velocity.magnitude; //* (-1 * direction.x);
+
+            if (Input.GetAxis("Horizontal") != 0)
+            {
+                Steer(Input.GetAxis("Horizontal"));
+            }
+
+            if (currentSpeed < maxSpeed)
+            {
+                if (Input.GetAxis("Vertical") != 0)
+                {
+                    Drive(Input.GetAxis("Vertical"));
+                }
+                else
+                {
+                    Drive(0);
+                }
+            }
+
+            foreach (WheelCollider wheel in wheelColliders)
+            {
+                if (wheel.rpm > 250)
+                {
+                    wheel.motorTorque = 0;
+                }
+            }
+
+            Brake(Input.GetButtonDown("Fire3"));
+        }
+
+    }
+
 
     public void Steer(float steer)
     {
@@ -54,25 +83,15 @@ public class CarController : MonoBehaviour
         wheelColliders[1].steerAngle = finalAngle;
     }
 
-    public void Drive(bool handBrake, float drivingForce)
+    public void Drive(float drivingForce)
     {
-        Vector3 normalDirection = rigidBody.velocity.normalized;
-
-        currentSpeed = 2.23694f * rigidBody.velocity.magnitude; //* (-1 * direction.x);
-        Debug.Log("Current Speed: " + Mathf.Round(currentSpeed) + " MPH");
-
-        // Check if we're allowed to accelerate
-        if (currentSpeed < maxSpeed || currentSpeed > -maxSpeed)
-        {
-            wheelColliders[0].motorTorque = maxTorque * drivingForce * multiplier;
-            wheelColliders[1].motorTorque = maxTorque * drivingForce * multiplier;
-        }
-
+        wheelColliders[0].motorTorque = maxTorque * drivingForce;
+        wheelColliders[1].motorTorque = maxTorque * drivingForce;
     }
 
-    public void Brake(bool handBrake)
+    public void Brake(bool handbrake)
     {
-        if (handBrake)
+        if (handbrake)
         {
             wheelColliders[2].brakeTorque = maxBrakeTorque;
             wheelColliders[3].brakeTorque = maxBrakeTorque;
@@ -84,28 +103,8 @@ public class CarController : MonoBehaviour
             wheelColliders[2].brakeTorque = 0;
             wheelColliders[3].brakeTorque = 0;
         }
+
+
     }
 
-    void OnGUI()
-    {
-        if (debugMode)
-        {
-            style.normal.textColor = Color.white;
-            style.fontSize = 16;
-
-            // Debugging labels
-            GUI.Label(new Rect(10, 10, 1500, 50), "Max Torque: " + maxTorque, style);
-            GUI.Label(new Rect(10, 30, 1500, 50), "Turn Force: " + turnForce, style);
-            GUI.Label(new Rect(10, 50, 1500, 50), "Mass: " + mass, style);
-            GUI.Label(new Rect(10, 70, 1500, 50), "Current Speed: " + Mathf.Round(currentSpeed) + " MPH", style);
-            //GUI.Label(new Rect(10, 70, 1500, 50), "Health: " + health, style);
-            //GUI.Label(new Rect(10, 90, 1500, 50), "Damage: " + damage, style);
-            //GUI.Label(new Rect(10, 110, 1500, 50), "Immune Status: " + isImmune, style);
-            //GUI.Label(new Rect(10, 130, 1500, 50), "Immune Timer: " + immuneTimer, style);
-            //GUI.Label(new Rect(10, 150, 1500, 50), "Handbrake Applied: " + handBrake, style);
-
-
-            //GUI.Label(new Rect(10, 130, 500, 50), "Health: " + health, style);
-        }
-    }
 }
